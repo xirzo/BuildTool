@@ -180,7 +180,8 @@ void executeBuildCompiler(BuildCompiler* compiler) {
         return;
     }
 
-    printf("Succesfully built program with code %d!\n", result);
+    printf("\033[1;32mSuccessfully\033[0m built program with \033[1;32mcode\033[0m %d!\n",
+           result);
     free(request);
 }
 
