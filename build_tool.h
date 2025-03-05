@@ -84,20 +84,20 @@ void setCompilerFlags(BuildCompiler* compiler, size_t flags_count, const char* f
     va_end(args);
 }
 
-void setInputFiles(BuildCompiler* compiler, size_t Filepaths_count, const char* Filepath,
+void setInputFiles(BuildCompiler* compiler, size_t filepaths_count, const char* filepath,
                    ...) {
-    if (compiler == NULL || Filepath == NULL) {
+    if (compiler == NULL || filepath == NULL) {
         fprintf(stderr, "error: Invalid compiler or Filepath\n");
         return;
     }
 
-    if (Filepaths_count == 0) {
+    if (filepaths_count == 0) {
         fprintf(stderr, "error: Filepaths count should not be zero\n");
         return;
     }
 
-    compiler->filepaths = (const char**)malloc(Filepaths_count * sizeof(const char*));
-    compiler->filepaths_count = Filepaths_count;
+    compiler->filepaths = (const char**)malloc(filepaths_count * sizeof(const char*));
+    compiler->filepaths_count = filepaths_count;
 
     if (compiler->filepaths == NULL) {
         fprintf(stderr, "error: Failed to allocate memory for Filepaths\n");
@@ -106,11 +106,11 @@ void setInputFiles(BuildCompiler* compiler, size_t Filepaths_count, const char* 
 
     va_list args;
 
-    compiler->filepaths[0] = Filepath;
+    compiler->filepaths[0] = filepath;
 
-    va_start(args, Filepath);
+    va_start(args, filepath);
 
-    for (size_t i = 1; i < Filepaths_count; i++) {
+    for (size_t i = 1; i < filepaths_count; i++) {
         char* arg = va_arg(args, char*);
 
         if (arg == NULL) {
