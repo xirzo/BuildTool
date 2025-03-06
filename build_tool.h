@@ -14,6 +14,9 @@ typedef struct BuildCompiler
 
     const char** filepaths;
     size_t filepaths_count;
+
+    const char** include_dirs;
+    size_t include_dirs_count;
 } BuildCompiler;
 
 BuildCompiler* createBuildCompiler() {
@@ -29,6 +32,10 @@ BuildCompiler* createBuildCompiler() {
 
     compiler->filepaths = NULL;
     compiler->filepaths_count = 0;
+
+    compiler->include_dirs = NULL;
+    compiler->include_dirs_count = 0;
+
     return compiler;
 }
 
@@ -38,6 +45,8 @@ void freeBuildCompiler(BuildCompiler* compiler) {
     }
 
     free(compiler->flags);
+    free(compiler->filepaths);
+    free(compiler->include_dirs);
     free(compiler);
 }
 
@@ -127,18 +136,74 @@ void setInputFiles(BuildCompiler* compiler, size_t filepaths_count, const char* 
     va_end(args);
 }
 
+void setIncludeDirectories(BuildCompiler* compiler, size_t dir_count, const char* dir,
+                           ...) {
+    if (compiler == NULL || dir == NULL) {
+        fprintf(stderr, "error: Invalid compiler or include directory\n");
+        return;
+    }
+
+    if (dir_count == 0) {
+        fprintf(stderr, "error: Include directory count should not be zero\n");
+        return;
+    }
+
+    compiler->include_dirs = (const char**)malloc(dir_count * sizeof(const char*));
+    compiler->include_dirs_count = dir_count;
+
+    if (compiler->include_dirs == NULL) {
+        fprintf(stderr, "error: Failed to allocate memory for include directories\n");
+        return;
+    }
+
+    va_list args;
+
+    compiler->include_dirs[0] = dir;
+
+    va_start(args, dir);
+
+    for (size_t i = 1; i < dir_count; i++) {
+        char* arg = va_arg(args, char*);
+
+        if (arg == NULL) {
+            fprintf(stderr,
+                    "error: Failed to get arg at index %zu, it`s likely you`ve provided "
+                    "wrong include directory count or put NULL into args\n",
+                    i);
+            return;
+        }
+
+        compiler->include_dirs[i] = arg;
+    }
+
+    va_end(args);
+}
+
 void executeBuildCompiler(BuildCompiler* compiler) {
+    if (compiler == NULL) {
+        fprintf(stderr, "error: Invalid compiler\n");
+        return;
+    }
+
     size_t length = 0;
 
     for (size_t i = 0; i < compiler->flags_count; i++) {
-        length += strlen(compiler->flags[i]);
+        length += strlen(compiler->flags[i]) + 1;
+    }
+
+    for (size_t i = 0; i < compiler->include_dirs_count; i++) {
+        length += strlen("-I") + strlen(compiler->include_dirs[i]) + 1;
     }
 
     for (size_t i = 0; i < compiler->filepaths_count; i++) {
-        length += strlen(compiler->filepaths[i]);
-    }
+        const char* filepath = compiler->filepaths[i];
+        size_t filepath_len = strlen(filepath);
 
-    length += compiler->flags_count + compiler->filepaths_count;
+        if (filepath_len > 2 && filepath[filepath_len - 2] == '.' &&
+            filepath[filepath_len - 1] == 'c') {
+            length += filepath_len + 1;
+        }
+    }
 
     char* request = (char*)malloc(length + 1);
 
@@ -154,10 +219,19 @@ void executeBuildCompiler(BuildCompiler* compiler) {
         strcat(request, " ");
     }
 
-    for (size_t i = 0; i < compiler->filepaths_count; i++) {
-        strcat(request, compiler->filepaths[i]);
+    for (size_t i = 0; i < compiler->include_dirs_count; i++) {
+        strcat(request, "-I");
+        strcat(request, compiler->include_dirs[i]);
+        strcat(request, " ");
+    }
 
-        if (i < compiler->filepaths_count - 1) {
+    for (size_t i = 0; i < compiler->filepaths_count; i++) {
+        const char* filepath = compiler->filepaths[i];
+        size_t filepath_len = strlen(filepath);
+
+        if (filepath_len > 2 && filepath[filepath_len - 2] == '.' &&
+            filepath[filepath_len - 1] == 'c') {
+            strcat(request, filepath);
             strcat(request, " ");
         }
     }
@@ -177,12 +251,15 @@ void executeBuildCompiler(BuildCompiler* compiler) {
 
     if (result == -1) {
         fprintf(stderr, "error: Failed to execute command\n");
+        free(request);
+        free(command);
         return;
     }
 
     printf("\033[1;32mSuccessfully\033[0m built program with \033[1;32mcode\033[0m %d!\n",
            result);
     free(request);
+    free(command);
 }
 
 #endif  // BUILD_TOOL_H
